@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Learning</title>
+    <link rel="stylesheet" href="/static/app.css?v=8">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="title-section">
+                    <h1 data-i18n="title">Sign Language Learning</h1>
+                    <p class="subtitle" data-i18n="subtitle">Learn NGT alphabet with real-time feedback</p>
+                </div>
+                
+                <!-- Practice Mode Selector -->
+                <div class="mode-switch-container" id="practiceModeContainer">
+                    <span class="mode-label" data-i18n="label-practice-mode">Practice Mode</span>
+                    <select id="practiceModeSelect" class="styled-select">
+                        <option value="letter" data-i18n="mode-letter-practice">Single Letters</option>
+                        <option value="sentence" data-i18n="mode-sentence-practice">Target Sentence</option>
+                        <option value="free" data-i18n="mode-free-practice">Free Sign</option>
+                    </select>
+                </div>
+                
+                <!-- Mode Toggle Switch (Letter Order) -->
+                <div class="mode-switch-container" id="modeSwitchContainer">
+                    <span class="mode-label" data-i18n="label-letter-order">Letter Order</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modeCheckbox" disabled>
+                        <span class="slider">
+                            <span class="slider-text left" data-i18n="mode-abc">ABC</span>
+                            <span class="slider-text right" data-i18n="mode-random">Random</span>
+                        </span>
+                    </label>
+                </div>
+                
+                <!-- Language Toggle Switch -->
+                <div class="mode-switch-container" id="languageSwitchContainer">
+                    <span class="mode-label" data-i18n="label-language">Language</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="languageCheckbox">
+                        <span class="slider">
+                            <span class="slider-text left" data-i18n="lang-en">English</span>
+                            <span class="slider-text right" data-i18n="lang-nl">Nederlands</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <!-- Target Letter & Tutorial -->
+            <div class="card target-card">
+                
+                <!-- Single Letter UI -->
+                <div id="singleLetterUI">
+                    <h2 data-i18n="target-letter">Target Letter</h2>
+                    <div class="target-letter" id="targetLetter">A</div>
+                    
+                </div>
+
+                <!-- Sentence/Free UI -->
+                <div id="sentenceUI" style="display: none;">
+                    <h2 data-i18n="sentence-mode-title" id="sentenceModeTitle">Target Sentence</h2>
+                    
+                    <div class="sentence-input-group" id="sentenceInputGroup">
+                        <input type="text" id="targetSentenceInput" placeholder="Enter target sentence..." autocomplete="off">
+                        <button id="setSentenceBtn" class="btn btn-primary" data-i18n="btn-set">Set</button>
+                    </div>
+                    
+                    <div class="sentence-display">
+                        <div class="target-sentence-display" id="targetSentenceDisplay" style="display: none;"></div>
+                        <div class="recognized-sentence-display" id="recognizedSentenceDisplay"></div>
+                    </div>
+                    
+                    <button id="clearSentenceBtn" class="btn btn-stop" data-i18n="btn-clear">Clear Recognition</button>
+                </div>
+                
+                <!-- Tutorial GIF -->
+                <div class="tutorial-container" id="tutorialContainer">
+                    <img id="tutorialGif" src="" alt="How to sign" style="display: none;">
+                    <p class="tutorial-hint" data-i18n="watch-example">Watch the example above</p>
+                </div>
+                
+                <div class="instructions">
+                    <p><strong data-i18n="instructions">Instructions:</strong></p>
+                    <ol>
+                        <li data-i18n="instr-1">Watch the example GIF</li>
+                        <li data-i18n="instr-2">Position your hand in view</li>
+                        <li data-i18n="instr-3">Click "Record" button</li>
+                        <li data-i18n="instr-4">Hold the sign for 3 seconds</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Video Feed -->
+            <div class="card video-card">
+                <div class="video-container">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    
+                    <!-- Status Badge -->
+                    <div class="status-badge" id="statusBadge">
+                        <span class="dot"></span>
+                        <span id="statusText" data-i18n="status-not-connected">Not Connected</span>
+                    </div>
+                    
+                    <!-- Recording Progress -->
+                    <div class="recording-progress" id="recordingProgress" style="display: none;">
+                        <span data-i18n="recording">Recording</span><span id="progressPercent"></span>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn" data-i18n="btn-start">Start Camera</button>
+                    <button id="recordBtn" class="btn btn-record" disabled data-i18n="btn-record">Record</button>
+                    <button id="skipBtn" class="btn btn-skip" disabled data-i18n="btn-skip">Skip Letter</button>
+                </div>
+            </div>
+
+            <!-- Prediction & Stats -->
+            <div class="card prediction-card">
+                <h2 data-i18n="prediction">Prediction</h2>
+                <div class="prediction-letter" id="predictionLetter">-</div>
+                <div class="confidence" id="confidence">-</div>
+                
+                <div class="stats-section">
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="stat-correct">Correct</span>
+                        <span class="stat-value" id="correctCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="stat-attempts">Attempts</span>
+                        <span class="stat-value" id="totalCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="stat-accuracy">Accuracy</span>
+                        <span class="stat-value" id="accuracy">0%</span>
+                    </div>
+                </div>
+                
+                <div class="timer">
+                    <span class="timer-label" data-i18n="time-remaining">Time Remaining</span>
+                    <span class="timer-value" id="timeDisplay">60s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hint Message -->
+        <div class="hint-message" id="hintMessage" style="display: none;">
+            <span id="hintText"></span>
+        </div>
+
+        <!-- Success Message -->
+        <div class="success-message" id="successMessage" style="display: none;">
+            <h2 data-i18n="msg-correct-title">✓ Correct!</h2>
+            <p data-i18n="msg-correct-text">Moving to next letter...</p>
+        </div>
+
+        <!-- Timeout Message -->
+        <div class="timeout-message" id="timeoutMessage" style="display: none;">
+            <h2 data-i18n="msg-timeout-title">Time's up!</h2>
+            <p data-i18n="msg-timeout-text">Moving to next letter...</p>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=5"></script>
+</body>
+</html>
