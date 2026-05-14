@@ -87,6 +87,7 @@ sign-language/
 │   └── hand_landmarker.task  # MediaPipe model
 ├── data_collect/             # Landmark recording utilities
 ├── dataset_builder/          # Dataset creation and augmentation tools
+├── scripts/                  # Setup scripts (Linux/macOS, Windows)
 ├── frontend/                 # Web interface (HTML, JS, CSS)
 ├── main.py                   # Application entry point
 └── pyproject.toml            # Project metadata and dependencies
@@ -99,20 +100,37 @@ sign-language/
 - Python 3.12+
 - Webcam
 - GPU (optional, for faster inference)
-- Model weights (see [`models/README.md`](models/README.md))
 
-### Setup with uv
+### Quick setup
 
+The setup scripts create a virtual environment, install dependencies, and download model weights from the GitHub release automatically.
+
+**Linux / macOS:**
 ```bash
 git clone https://github.com/filipp-lotsmanov/sign-language.git
 cd sign-language
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
 
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/filipp-lotsmanov/sign-language.git
+cd sign-language
+.\scripts\setup.ps1
+```
+
+### Manual setup
+
+```bash
 uv venv
 source .venv/bin/activate    # Linux/macOS
 # .venv\Scripts\activate     # Windows
 
 uv pip install -e .
 ```
+
+Then download model weights from the [latest release](https://github.com/filipp-lotsmanov/sign-language/releases) and place them in `models/` (see [`models/README.md`](models/README.md)).
 
 ### Running the app
 
