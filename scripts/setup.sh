@@ -34,7 +34,7 @@ if ! command -v uv &> /dev/null; then
     echo ""
     echo "uv not found. Installing..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$PATH"
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
 echo "[OK] uv installed"
 
