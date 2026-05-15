@@ -6,6 +6,7 @@ from pathlib import Path
 import torch
 import numpy as np
 from collections import deque
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class DynamicSignPredictor:
     Uses LSTM to analyze sequences of hand landmarks over time.
     """
     
-    def __init__(self, model_path=None, device=None):
+    def __init__(self, model_path: Optional[str] = None, device: Optional[torch.device] = None) -> None:
         """
         Initialize the dynamic sign predictor.
         
@@ -47,7 +48,7 @@ class DynamicSignPredictor:
         # Load model
         self._load_model()
     
-    def _load_model(self):
+    def _load_model(self) -> None:
         """Load trained LSTM model."""
         if not self.model_path.exists():
             logger.warning("Dynamic model not found: %s", self.model_path)
@@ -78,7 +79,7 @@ class DynamicSignPredictor:
             logger.error("Error loading dynamic model: %s", e)
             self.model = None
     
-    def normalize_landmarks(self, landmarks):
+    def normalize_landmarks(self, landmarks: np.ndarray) -> np.ndarray:
         """
         Normalize landmarks (same as training).
         
@@ -103,16 +104,16 @@ class DynamicSignPredictor:
         
         return points.flatten()
     
-    def start_collecting(self):
+    def start_collecting(self) -> None:
         """Start collecting frames for a dynamic gesture."""
         self.buffer.clear()
         self.is_collecting = True
     
-    def stop_collecting(self):
+    def stop_collecting(self) -> None:
         """Stop collecting frames."""
         self.is_collecting = False
     
-    def add_frame(self, landmarks):
+    def add_frame(self, landmarks: np.ndarray) -> bool:
         """
         Add a frame to the buffer.
         
@@ -129,7 +130,7 @@ class DynamicSignPredictor:
         
         return len(self.buffer) == self.sequence_length
     
-    def predict(self, landmark_sequence=None):
+    def predict(self, landmark_sequence: Optional[np.ndarray] = None) -> Optional[dict]:
         """
         Predict dynamic sign from sequence of hand landmarks.
         
@@ -180,7 +181,7 @@ class DynamicSignPredictor:
             'all_probabilities': all_probs
         }
     
-    def _interpolate_sequence(self, seq):
+    def _interpolate_sequence(self, seq: np.ndarray) -> np.ndarray:
         """Interpolate sequence to target length."""
         try:
             from scipy.interpolate import interp1d
@@ -198,10 +199,10 @@ class DynamicSignPredictor:
                 padding = np.tile(seq[-1], (self.sequence_length - len(seq), 1))
                 return np.vstack([seq, padding]).astype(np.float32)
     
-    def get_buffer_progress(self):
+    def get_buffer_progress(self) -> float:
         """Get current buffer fill percentage (0-1)."""
         return len(self.buffer) / self.sequence_length
     
-    def clear_buffer(self):
+    def clear_buffer(self) -> None:
         """Clear the frame buffer."""
         self.buffer.clear()

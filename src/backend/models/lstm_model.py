@@ -14,12 +14,12 @@ class DynamicSignLSTM(nn.Module):
 
     def __init__(
         self,
-        input_size=63,
-        hidden_size=128,
-        num_layers=2,
-        num_classes=2,
-        dropout=0.3,
-    ):
+        input_size: int = 63,
+        hidden_size: int = 128,
+        num_layers: int = 2,
+        num_classes: int = 2,
+        dropout: float = 0.3,
+    ) -> None:
         super().__init__()
 
         self.hidden_size = hidden_size
@@ -41,7 +41,8 @@ class DynamicSignLSTM(nn.Module):
             nn.Linear(64, num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass: LSTM encoding, take last output, classify."""
         lstm_out, (h_n, c_n) = self.lstm(x)
         last_output = lstm_out[:, -1, :]
         return self.fc(last_output)

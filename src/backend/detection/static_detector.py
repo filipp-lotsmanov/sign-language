@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import pickle
 from pathlib import Path
+from typing import Optional
 from src.backend.models.cnn_model import ResidualMLP
 from src.backend.models import config
 
@@ -20,7 +21,7 @@ class StaticSignPredictor:
     Uses a trained ResidualMLP to classify hand landmarks.
     """
     
-    def __init__(self, model_path=None, device=None):
+    def __init__(self, model_path: Optional[str] = None, device: Optional[torch.device] = None) -> None:
         """
         Initialize the static sign predictor.
         
@@ -38,7 +39,7 @@ class StaticSignPredictor:
         self.model = self._load_model()
         self.model.eval()
     
-    def _load_classes(self):
+    def _load_classes(self) -> np.ndarray:
         """Load class labels from .npy or .pkl file."""
         model_dir = self.model_path.parent
         
@@ -67,7 +68,7 @@ class StaticSignPredictor:
         logger.warning("No class labels found in %s", model_dir)
         return []
     
-    def _load_model(self):
+    def _load_model(self) -> ResidualMLP:
         """Load model with support for both old and new checkpoint formats."""
         if not self.model_path.exists():
             logger.warning("Model not found at %s", self.model_path)
@@ -116,7 +117,7 @@ class StaticSignPredictor:
             logger.warning("Creating new model with default parameters")
             return ResidualMLP(config.INPUT_SIZE, config.NUM_CLASSES).to(self.device)
 
-    def predict(self, landmarks):
+    def predict(self, landmarks: np.ndarray) -> dict:
         """
         Predict sign from hand landmarks.
         

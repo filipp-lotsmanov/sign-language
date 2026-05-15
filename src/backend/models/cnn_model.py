@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 class ResidualBlock(nn.Module):
     """Residual block with skip connection for better gradient flow."""
-    def __init__(self, dim, dropout=0.3):
+    def __init__(self, dim: int, dropout: float = 0.3) -> None:
         super().__init__()
         self.block = nn.Sequential(
             nn.Linear(dim, dim),
@@ -20,7 +20,8 @@ class ResidualBlock(nn.Module):
             nn.BatchNorm1d(dim)
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply residual block with skip connection."""
         return F.gelu(x + self.block(x))
 
 
@@ -41,7 +42,7 @@ class ResidualMLP(nn.Module):
         num_blocks: Number of residual blocks (default: 4)
         dropout: Dropout probability (default: 0.3)
     """
-    def __init__(self, input_dim=63, num_classes=24, hidden_dim=256, num_blocks=4, dropout=0.3):
+    def __init__(self, input_dim: int = 63, num_classes: int = 24, hidden_dim: int = 256, num_blocks: int = 4, dropout: float = 0.3) -> None:
         super().__init__()
         self.input_proj = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -54,7 +55,8 @@ class ResidualMLP(nn.Module):
             nn.Linear(hidden_dim, num_classes)
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass: project, apply residual blocks, classify."""
         x = self.input_proj(x)
         x = self.blocks(x)
         return self.classifier(x)
@@ -63,5 +65,5 @@ class ResidualMLP(nn.Module):
 # Legacy alias for backward compatibility
 class ASLClassifier(ResidualMLP):
     """Legacy name - redirects to ResidualMLP."""
-    def __init__(self, input_size, num_classes):
+    def __init__(self, input_size: int, num_classes: int) -> None:
         super().__init__(input_dim=input_size, num_classes=num_classes)

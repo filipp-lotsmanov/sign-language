@@ -536,6 +536,16 @@ async def websocket_endpoint(websocket: WebSocket):
             logger.error("Failed to send error message: %s", send_error)
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Serve favicon from static files."""
+    favicon_path = FRONTEND_DIR / "favicon.svg"
+    if favicon_path.exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(favicon_path), media_type="image/svg+xml")
+    return Response(status_code=204)
+
+
 # Mount static files after routes to avoid conflicts
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")

@@ -20,6 +20,19 @@ A real-time sign language learning application that teaches the **NGT (Nederland
    - **Dynamic letters (J, Z)**: 30-frame sequence classification by the Bidirectional LSTM
 5. The prediction is validated against the target letter and feedback is returned in real time
 
+```mermaid
+flowchart LR
+    A[Webcam] -->|WebRTC| B[Browser]
+    B -->|WebSocket| C[FastAPI Backend]
+    C --> D[MediaPipe<br/>Hand Landmarker]
+    D -->|21 landmarks<br/>63 features| E{Static or<br/>Dynamic?}
+    E -->|A-I, K-Y| F[ResidualMLP<br/>CNN]
+    E -->|J, Z| G[Bidirectional<br/>LSTM]
+    F -->|prediction +<br/>confidence| H[Session<br/>Manager]
+    G -->|prediction +<br/>confidence| H
+    H -->|feedback| B
+```
+
 ## Models
 
 ### Static sign classifier — ResidualMLP
@@ -88,6 +101,7 @@ sign-language/
 ├── data_collect/             # Landmark recording utilities
 ├── dataset_builder/          # Dataset creation and augmentation tools
 ├── scripts/                  # Setup scripts (Linux/macOS, Windows)
+├── tests/                    # Unit tests
 ├── frontend/                 # Web interface (HTML, JS, CSS)
 ├── main.py                   # Application entry point
 └── pyproject.toml            # Project metadata and dependencies
@@ -159,6 +173,13 @@ Key parameters can be adjusted in `src/backend/core/config.py`:
 | `CONFIDENCE_THRESHOLD` | 0.6 | Minimum confidence for a valid prediction |
 | `HINT_THRESHOLD_ATTEMPTS` | 3 | Failed attempts before showing a hint |
 | `DYNAMIC_BUFFER_SIZE` | 30 | Frames required for LSTM inference |
+
+## Testing
+
+```bash
+uv pip install -e ".[dev]"
+python -m pytest tests/ -v
+```
 
 ## Training
 
