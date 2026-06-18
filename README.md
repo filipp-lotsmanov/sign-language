@@ -7,8 +7,8 @@
 
 A real-time sign language learning application that teaches the **NGT (Nederlandse Gebarentaal / Dutch Sign Language)** fingerspelling alphabet through webcam-based gesture recognition. Two deep learning models — a ResidualMLP for static letters and a Bidirectional LSTM for dynamic letters — provide instant feedback as the user practices.
 
-<!-- TODO: Add a demo GIF or screenshot of the app in action here -->
-<!-- ![Demo](docs/demo.gif) -->
+
+![Demo](docs/demo.gif)
 
 ## How It Works
 
