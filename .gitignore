@@ -25,7 +25,7 @@ venv/
 env/
 
 # uv
-uv.lock
+# uv.lock is intentionally committed: it is what makes installs reproducible.
 
 # IDE
 .idea/

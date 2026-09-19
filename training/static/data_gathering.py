@@ -32,7 +32,7 @@ def init_mediapipe(model_path=None):
         base_options=base_options,
         num_hands=1,
         min_hand_detection_confidence=0.5,
-        min_tracking_confidence=0.5
+        min_tracking_confidence=0.5,
     )
     return vision.HandLandmarker.create_from_options(options)
 
@@ -58,7 +58,7 @@ def extract_landmarks_from_image(detector, img_path):
             for lm in hand:
                 coords.extend([lm.x, lm.y, lm.z])
             return np.array(coords, dtype=np.float32)
-    except Exception as e:
+    except Exception:
         pass
     return None
 
@@ -81,7 +81,7 @@ def extract_from_folder(detector, folder_path, label):
         return []
 
     # Collect all image files
-    extensions = ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']
+    extensions = ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"]
     images = []
     for ext in extensions:
         images.extend(folder_path.glob(ext))
@@ -114,36 +114,32 @@ def gather_data(photos_dir, letter_folders, mediapipe_model=None):
         letter_folders: Dict mapping labels to folder names
                        e.g., {'A': 'A_letter', 'Nonsense': 'Nonsense'}
         mediapipe_model: Path to MediaPipe model file. Defaults to config.MEDIAPIPE_MODEL.
-    
+
     Returns:
         List of (label, landmarks) tuples
     """
     print("=" * 60)
     print("DATA GATHERING: EXTRACTING LANDMARKS")
     print("=" * 60)
-    
+
     detector = init_mediapipe(mediapipe_model)
     print("MediaPipe initialized\n")
-    
+
     photos_dir = Path(photos_dir)
     all_samples = []
-    
+
     for label, folder_name in letter_folders.items():
         folder_path = photos_dir / folder_name
         samples = extract_from_folder(detector, folder_path, label)
         all_samples.extend(samples)
-    
+
     print(f"\nTotal extracted: {len(all_samples)} samples")
     return all_samples
 
 
 if __name__ == "__main__":
     # Example usage
-    LETTER_FOLDERS = {
-        'D': 'D_letter',
-        'F': 'F_letter',
-        'Nonsense': 'Nonsense'
-    }
-    
+    LETTER_FOLDERS = {"D": "D_letter", "F": "F_letter", "Nonsense": "Nonsense"}
+
     samples = gather_data("letters", LETTER_FOLDERS)
     print(f"Gathered {len(samples)} samples")

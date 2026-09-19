@@ -1,36 +1,52 @@
 """
-Configuration for CNN-based static sign language classifier.
+Inference-time configuration for the static sign classifier.
+
+Everything shared with the rest of the application is re-exported from
+src.backend.core.config rather than redefined. This file previously carried its
+own copies of the letter count, the confidence threshold and a set of training
+hyperparameters, none of which were read by anything: the served app used the
+core values and the training scripts used training/static/config.py, so the
+duplicates silently drifted.
 """
+
 import torch
-from pathlib import Path
 
-# Base directory for model files
-# Points to models/static/ where best_model.pth and classes.npy are stored
-BASE_DIR = Path(__file__).parent.parent.parent.parent / "models" / "static"
+from src.backend.core.config import (
+    INPUT_SIZE,
+    NUM_STATIC_CLASSES,
+    STATIC_CLASSES_PATH,
+    STATIC_LABEL_ENCODER_PATH,
+    STATIC_MODEL_DIR,
+    STATIC_MODEL_PATH,
+)
 
-# Data Settings
-DATA_PATH = 'ngt.npz'
-MODEL_SAVE_PATH = BASE_DIR / 'best_model.pth'
-LABEL_ENCODER_PATH = BASE_DIR / 'classes.npy'
+# Where the static model artifacts live.
+BASE_DIR = STATIC_MODEL_DIR
+MODEL_SAVE_PATH = STATIC_MODEL_PATH
+CLASSES_PATH = STATIC_CLASSES_PATH
+LABEL_ENCODER_PATH = STATIC_LABEL_ENCODER_PATH
 
-# Model Hyperparameters
-INPUT_SIZE = 63  # 21 landmarks * 3 coordinates (x, y, z)
-NUM_CLASSES = 25  # A-Z excluding J and Z (24 letters) + Nonsense class = 25
-BATCH_SIZE = 64
-EPOCHS = 50
-LEARNING_RATE = 0.001
+# Model shape. These must match the trained checkpoint; the checkpoint's own
+# metadata takes precedence when present.
+NUM_CLASSES = NUM_STATIC_CLASSES
 
-# Training Settings
-PATIENCE = 7
-MIN_DELTA = 0.001
-LR_PATIENCE = 3
-LR_FACTOR = 0.5
-VAL_SPLIT = 0.15
-TEST_SPLIT = 0.15
-RANDOM_SEED = 42
-
-# Inference Settings
-CONFIDENCE_THRESHOLD = 0.8
+# Architecture defaults, matching training/static/config.py.
+HIDDEN_DIM = 256
+NUM_BLOCKS = 4
+DROPOUT = 0.3
 
 # Hardware
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+__all__ = [
+    "BASE_DIR",
+    "CLASSES_PATH",
+    "DEVICE",
+    "DROPOUT",
+    "HIDDEN_DIM",
+    "INPUT_SIZE",
+    "LABEL_ENCODER_PATH",
+    "MODEL_SAVE_PATH",
+    "NUM_BLOCKS",
+    "NUM_CLASSES",
+]

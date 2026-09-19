@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sign-language"
 version = "0.1.0"
@@ -10,29 +14,90 @@ authors = [
     {name = "DanilSysenko"},
     {name = "Oleksii Krasnoshtanov"},
 ]
+
+# Runtime dependencies only: what the served application imports.
+# Upper bounds are deliberate. opencv-python published a 5.0 major while this
+# project declared no ceiling, so an unpinned install silently jumped majors.
 dependencies = [
-    "fastapi",
-    "fastdtw",
-    "matplotlib",
+    "fastapi>=0.110,<1.0",
     "mediapipe==0.10.14",
-    "numpy",
-    "opencv-python",
-    "pandas",
-    "pydantic>=2.12.5",
-    "python-multipart>=0.0.22",
-    "requests>=2.32.5",
-    "scikit-learn",
-    "torch",
-    "torchvision",
-    "tqdm",
-    "uvicorn>=0.40.0",
-    "websockets>=16.0",
+    "numpy>=1.26,<3",
+    "opencv-python>=4.8,<5",
+    "pydantic>=2.7,<3",
+    # Required to unpickle models/static/label_encoder.pkl at inference time.
+    "scikit-learn>=1.4,<2",
+    # Used by DynamicSignPredictor._interpolate_sequence. Previously undeclared
+    # and only present transitively via scikit-learn.
+    "scipy>=1.11,<2",
+    "torch>=2.2,<3",
+    # [standard] provides the websocket implementation the /ws endpoint needs.
+    "uvicorn[standard]>=0.40,<1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "httpx>=0.27",      # required by fastapi.testclient
+    "ruff>=0.6",
+]
+# Needed only to retrain the models; not installed for serving.
+train = [
+    "matplotlib>=3.8,<4",
+    "pandas>=2.0,<3",
+    "tqdm>=4.66,<5",
 ]
 
 [project.scripts]
 sign-language = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/filipp-lotsmanov/sign-language"
+Issues = "https://github.com/filipp-lotsmanov/sign-language/issues"
+
+# Without this, setuptools auto-discovery sees the src/ directory, assumes a
+# src-layout, and installs src/backend as a top-level `backend` package. Every
+# `from src.backend...` import then fails from an installed wheel, and main.py
+# is left out entirely, breaking the console script above.
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Puts the repository root on sys.path so `from src.backend...` resolves under a
+# bare `pytest` invocation, not just `python -m pytest`. Requires pytest >= 7.
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+# Deliberately the bug-catching subset, so CI is green from the first commit.
+# The cosmetic rule families are listed below and can be enabled as a separate
+# mechanical pass; mixing that churn into a behaviour change makes review hard.
+#   "I"      import sorting            (~19 findings, pure reordering)
+#   "UP"     pyupgrade                 (~48 findings, Optional[X] -> X | None)
+#   "NPY002" legacy np.random          (~39 findings; DO NOT auto-fix, it would
+#            change the RNG stream and therefore the augmented training data)
+#   "W"      trailing whitespace       (~300 findings across legacy files;
+#            worth one standalone cleanup commit, not mixed into this change)
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "B",   # bugbear
+]
+ignore = [
+    "E501",  # line length is a formatter concern
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Training and dataset scripts bootstrap sys.path before importing siblings.
+"training/**" = ["E402"]
+"dataset_builder/**" = ["E402"]
+"data_collect/**" = ["E402"]

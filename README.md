@@ -1,5 +1,6 @@
 # NGT Sign Language Learning App
 
+[![CI](https://github.com/filipp-lotsmanov/sign-language/actions/workflows/ci.yml/badge.svg)](https://github.com/filipp-lotsmanov/sign-language/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
@@ -40,14 +41,14 @@ flowchart LR
 - 4 residual blocks with skip connections, BatchNorm, and GELU activations
 - Input: 63 features (21 landmarks x 3 coordinates)
 - Output: 25 classes (24 letters + nonsense class)
-- Validation accuracy: ~95%
+- Accuracy: see the `val_acc` and `test_acc` fields in the checkpoint produced by `training/static/train.py`
 
 ### Dynamic sign classifier — Bidirectional LSTM
 
 - 2-layer bidirectional LSTM
 - Input: sequences of 30 frames x 63 features
 - Output: 2 classes (J, Z)
-- Validation accuracy: ~92%
+- Accuracy: see the `val_acc` and `test_acc` fields in the checkpoint produced by `training/dynamic/train.py`
 
 <!-- TODO: Embed confusion matrices here once regenerated -->
 <!-- ![Static model confusion matrix](docs/static_confusion_matrix.png) -->
@@ -58,7 +59,7 @@ flowchart LR
 - **Real-time hand detection** via MediaPipe
 - **Dual-model architecture** routing static and dynamic letters to the appropriate classifier
 - **Recording-based workflow** with a 3-second capture window per attempt
-- **Two practice modes**: sequential (A-Z) and random order
+- **Three practice modes**: sequential (A-Z), random order, and sentence/free signing
 - **Bilingual interface**: English and Dutch
 - **Hint system** that activates after repeated failed attempts
 - **Tutorial GIFs** demonstrating each letter's hand shape
@@ -102,6 +103,7 @@ sign-language/
 ├── dataset_builder/          # Dataset creation and augmentation tools
 ├── scripts/                  # Setup scripts (Linux/macOS, Windows)
 ├── tests/                    # Unit tests
+├── .github/workflows/        # CI (lint, tests, wheel build)
 ├── frontend/                 # Web interface (HTML, JS, CSS)
 ├── main.py                   # Application entry point
 └── pyproject.toml            # Project metadata and dependencies
@@ -137,22 +139,35 @@ cd sign-language
 ### Manual setup
 
 ```bash
-uv venv
-source .venv/bin/activate    # Linux/macOS
-# .venv\Scripts\activate     # Windows
-
-uv pip install -e .
+uv sync                      # runtime dependencies, from the committed uv.lock
+uv sync --extra dev          # plus pytest and ruff
+uv sync --extra train        # plus the retraining dependencies
 ```
+
+`uv.lock` is committed, so `uv sync` reproduces an exact dependency set. Use
+`uv sync --frozen` in CI to fail if the lockfile has drifted from
+`pyproject.toml`.
 
 Then download model weights from the [latest release](https://github.com/filipp-lotsmanov/sign-language/releases) and place them in `models/` (see [`models/README.md`](models/README.md)).
 
 ### Running the app
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 Then open `http://localhost:8000` in your browser.
+
+The server binds to `127.0.0.1` by default. The WebSocket endpoint is
+unauthenticated, so binding to all interfaces is opt-in:
+
+```bash
+HOST=0.0.0.0 PORT=8000 uv run python main.py
+```
+
+Run a single worker. Sessions and the loaded models live in process memory, so a
+second worker would keep its own sessions and requests would land on a worker
+that has never seen the caller's session.
 
 ## Usage
 
@@ -171,29 +186,55 @@ Key parameters can be adjusted in `src/backend/core/config.py`:
 |-----------|---------|-------------|
 | `RECORDING_DURATION` | 3.0s | Capture window per attempt |
 | `CONFIDENCE_THRESHOLD` | 0.6 | Minimum confidence for a valid prediction |
-| `HINT_THRESHOLD_ATTEMPTS` | 3 | Failed attempts before showing a hint |
+| `HINT_THRESHOLD_ATTEMPTS` | 3 | Failed attempts between hints |
+| `MAX_HINTS` | 2 | Maximum hints per letter |
 | `DYNAMIC_BUFFER_SIZE` | 30 | Frames required for LSTM inference |
+
+Hints appear after 3 and 6 failed attempts, derived from
+`HINT_THRESHOLD_ATTEMPTS` and `MAX_HINTS`. The thresholds used to be a
+hardcoded `[5, 10, 15]` that ignored both constants.
+
+These server limits are read from the environment, so they can be tuned per
+deployment without editing code:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8000,http://127.0.0.1:8000` | Comma-separated allowed browser origins |
+| `SESSION_MAX_IDLE` | `1800` | Seconds before an idle session is swept |
+| `MAX_SESSIONS` | `500` | Cap on concurrent in-memory sessions |
+| `MAX_FRAME_BYTES` | `2097152` | Largest accepted frame payload |
+| `MAX_MESSAGES_PER_SECOND` | `30` | Per-connection inbound message ceiling |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## Testing
 
 ```bash
-uv pip install -e ".[dev]"
-python -m pytest tests/ -v
+uv sync --extra dev
+uv run pytest
 ```
 
 ## Training
 
-To retrain the models from scratch, see the scripts in `training/`:
+To retrain the models from scratch:
 
 ```bash
+uv sync --extra train
+
 # Static model (ResidualMLP)
-cd training/static
-python train.py
+uv run python training/static/train.py
 
 # Dynamic model (LSTM)
-cd training/dynamic
-python train.py
+uv run python training/dynamic/train.py
 ```
+
+Both scripts write their checkpoint, label encoder and class list straight into
+`models/static/` and `models/dynamic/`, where the application loads them from.
+
+Both split the data before augmenting and report a held-out test score that is
+used only once, at the end. Augmenting before splitting, as an earlier version
+did, scatters near-duplicates of the same sample across all three folds and
+makes the reported accuracy a memorization score.
 
 Training data is not included in the repository. See `data_collect/` for landmark recording tools and `dataset_builder/` for dataset creation utilities.
 

@@ -1,66 +1,181 @@
 """
-Dataset Creation: Normalize, Merge, and Prepare Data for Training
-=================================================================
-Handles: normalization, CSV merging, train/val/test splits, PyTorch Dataset.
+Dataset helpers: splitting, normalization, CSV merging, label encoding.
+
+Split before augment
+--------------------
+`split_samples` exists so that splitting happens on raw samples, before
+augmentation ever runs. The previous flow augmented x10 and split afterwards,
+which scattered ten near-copies of every source sample across train, val and
+test; the reported accuracy then measured recall of data the model had trained
+on. `assert_no_duplicate_rows_across_splits` is the belt-and-braces check that
+no identical row survives in a held-out split.
+
+`normalize_landmarks` and `normalize_samples` are re-exported from
+src/backend/detection/landmarks.py rather than reimplemented here. The transform
+used to exist in four copies and one of them diverged, so the static model was
+served feature vectors on a different scale than it was trained on.
 """
+
+import pickle
+import sys
+from collections import Counter
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from pathlib import Path
-import pickle
+from torch.utils.data import Dataset
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.backend.detection.landmarks import (  # noqa: E402
+    normalize_landmarks,
+    normalize_samples,
+)
+
+__all__ = [
+    "LandmarkDataset",
+    "assert_no_duplicate_rows_across_splits",
+    "encode_splits",
+    "load_label_encoder",
+    "merge_with_original",
+    "normalize_landmarks",
+    "normalize_samples",
+    "samples_to_dataframe",
+    "save_label_encoder",
+    "split_samples",
+]
+
+# A class needs at least one sample in each of train, val and test.
+MIN_SAMPLES_PER_CLASS = 3
 
 
-def normalize_landmarks(coords):
+def split_samples(samples, test_size, val_size, seed=42):
     """
-    Normalize hand landmarks for consistent input.
-    
-    1. Center on wrist (landmark 0)
-    2. Scale by hand size (distance to middle finger base - landmark 9)
-    
+    Split (label, coords) samples into train/val/test, stratified by label.
+
+    Splits indices rather than data, so the returned tuples hold the *same*
+    coordinate objects as the input. Nothing is copied and nothing is augmented.
+
     Args:
-        coords: numpy array of shape (63,) or (21, 3)
-    
+        samples: list of (label, coords)
+        test_size: test fraction of the whole dataset
+        val_size: validation fraction of the whole dataset
+        seed: RNG seed, so the split is reproducible
+
     Returns:
-        Normalized coordinates of shape (63,)
+        (train, val, test), each a list of (label, coords)
+
+    Raises:
+        ValueError: if any class is too small to appear in all three splits.
+            Rejected loudly rather than silently dropped, because a class that
+            vanishes from the test set inflates the reported accuracy.
     """
-    points = coords.reshape(21, 3)
-    
-    # Center on wrist
-    wrist = points[0].copy()
-    points = points - wrist
-    
-    # Scale by hand size
-    scale = np.linalg.norm(points[9])
-    if scale > 0.001:
-        points = points / scale
-    
-    return points.flatten()
+    labels = [label for label, _ in samples]
+
+    undersized = {
+        label: count
+        for label, count in sorted(Counter(labels).items())
+        if count < MIN_SAMPLES_PER_CLASS
+    }
+    if undersized:
+        raise ValueError(
+            f"These classes have fewer than 3 samples and cannot be split three "
+            f"ways: {undersized}. Record more, or drop them explicitly."
+        )
+
+    indices = np.arange(len(samples))
+
+    idx_temp, idx_test = train_test_split(
+        indices, test_size=test_size, stratify=labels, random_state=seed
+    )
+    # Re-scale so val_size stays a fraction of the ORIGINAL dataset.
+    val_adjusted = val_size / (1 - test_size)
+    idx_train, idx_val = train_test_split(
+        idx_temp,
+        test_size=val_adjusted,
+        stratify=[labels[i] for i in idx_temp],
+        random_state=seed,
+    )
+
+    def pick(chosen):
+        return [samples[i] for i in chosen]
+
+    return pick(idx_train), pick(idx_val), pick(idx_test)
 
 
-def normalize_samples(samples):
+def assert_no_duplicate_rows_across_splits(train_X, held_out_X, split_name):
     """
-    Normalize all samples in a list.
-    
+    Fail if any held-out row is byte-identical to a training row.
+
+    Catches leakage that survives a correct split, for example when the same
+    recording was ingested twice under different filenames.
+
     Args:
-        samples: List of (label, coords) tuples
-    
-    Returns:
-        List of (label, normalized_coords) tuples
+        train_X: (n, features) training matrix
+        held_out_X: (m, features) validation or test matrix
+        split_name: name used in the error message
+
+    Raises:
+        RuntimeError: if any exact duplicate is found.
     """
-    normalized = []
-    for label, coords in samples:
-        norm_coords = normalize_landmarks(coords)
-        normalized.append((label, norm_coords))
-    return normalized
+    train_X = np.asarray(train_X)
+    held_out_X = np.asarray(held_out_X)
+
+    if train_X.size == 0 or held_out_X.size == 0:
+        return
+
+    train_rows = {row.tobytes() for row in np.ascontiguousarray(train_X, dtype=np.float64)}
+    duplicates = [
+        i
+        for i, row in enumerate(np.ascontiguousarray(held_out_X, dtype=np.float64))
+        if row.tobytes() in train_rows
+    ]
+
+    if duplicates:
+        shown = duplicates[:10]
+        raise RuntimeError(
+            f"DUPLICATE ROWS: {len(duplicates)} row(s) in the '{split_name}' split are "
+            f"byte-identical to training rows (indices {shown}"
+            f"{'...' if len(duplicates) > len(shown) else ''}). "
+            "The reported accuracy for this split would be inflated."
+        )
+
+
+def encode_splits(df_train, df_val, df_test):
+    """
+    Encode labels consistently across all three splits.
+
+    The encoder is fit on the union of the splits, so a label index means the
+    same class everywhere. Fitting per split would silently remap classes.
+
+    Args:
+        df_train, df_val, df_test: DataFrames with a 'label' column followed by
+            the coordinate columns.
+
+    Returns:
+        (X_train, y_train, X_val, y_val, X_test, y_test, label_encoder)
+    """
+    frames = (df_train, df_val, df_test)
+
+    encoder = LabelEncoder()
+    encoder.fit(pd.concat([df["label"] for df in frames], ignore_index=True))
+
+    encoded = []
+    for df in frames:
+        encoded.append(df.iloc[:, 1:].to_numpy(dtype=np.float32))
+        encoded.append(encoder.transform(df["label"].to_numpy()))
+
+    return (*encoded, encoder)
 
 
 class LandmarkDataset(Dataset):
     """PyTorch Dataset for landmark data."""
-    
+
     def __init__(self, X, y):
         """
         Args:
@@ -69,160 +184,64 @@ class LandmarkDataset(Dataset):
         """
         self.X = torch.FloatTensor(X)
         self.y = torch.LongTensor(y)
-    
+
     def __len__(self):
         return len(self.X)
-    
+
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
 
 
 def samples_to_dataframe(samples):
     """
-    Convert list of samples to pandas DataFrame.
-    
-    Args:
-        samples: List of (label, coords) tuples
-    
-    Returns:
-        DataFrame with 'label' column and 63 coordinate columns
+    Convert a list of (label, coords) tuples to a DataFrame.
+
+    Builds the numeric columns directly rather than round-tripping every
+    coordinate through a string via np.column_stack.
     """
-    labels = [s[0] for s in samples]
-    coords = np.array([s[1] for s in samples])
-    
-    df = pd.DataFrame(
-        np.column_stack([labels, coords]),
-        columns=['label'] + [f'coord_{i}' for i in range(63)]
-    )
-    
-    # Convert coordinate columns to float
-    for col in df.columns[1:]:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-    
+    labels = [label for label, _ in samples]
+    coords = np.asarray([c for _, c in samples], dtype=np.float32)
+
+    df = pd.DataFrame(coords, columns=[f"coord_{i}" for i in range(coords.shape[1])])
+    df.insert(0, "label", labels)
     return df
 
 
 def merge_with_original(new_samples, original_csv, letters_to_replace):
     """
-    Merge new samples with original dataset, replacing specified letters.
-    
-    Args:
-        new_samples: List of (label, coords) tuples
-        original_csv: Path to original CSV file
-        letters_to_replace: List of letters to remove from original
-    
-    Returns:
-        Merged DataFrame
+    Merge new samples with the original dataset, replacing the given letters.
+
+    Returns a merged DataFrame. NOT shuffled and NOT split: the caller splits
+    before augmenting.
     """
-    # Load original
     df_original = pd.read_csv(original_csv)
     print(f"Loaded original: {len(df_original):,} samples")
-    
-    # Remove old letters
+
     for letter in letters_to_replace:
-        count = (df_original['label'] == letter).sum()
+        count = (df_original["label"] == letter).sum()
         print(f"  Removing {letter}: {count:,} samples")
-    
-    mask = ~df_original['label'].isin(letters_to_replace)
-    df_filtered = df_original[mask]
+
+    df_filtered = df_original[~df_original["label"].isin(letters_to_replace)]
     print(f"After removal: {len(df_filtered):,} samples")
-    
-    # Convert new samples to DataFrame
-    df_new = samples_to_dataframe(new_samples)
-    
-    # Merge
-    df_merged = pd.concat([df_filtered, df_new], ignore_index=True)
-    df_merged = df_merged.sample(frac=1, random_state=42).reset_index(drop=True)
-    
+
+    df_merged = pd.concat([df_filtered, samples_to_dataframe(new_samples)], ignore_index=True)
     print(f"Merged total: {len(df_merged):,} samples")
     return df_merged
 
 
-def prepare_data_splits(df, test_size=0.15, val_size=0.15):
-    """
-    Prepare train/val/test splits with label encoding.
-    
-    Args:
-        df: DataFrame with 'label' column and coordinate columns
-        test_size: Fraction for test set
-        val_size: Fraction for validation set
-    
-    Returns:
-        X_train, X_val, X_test, y_train, y_val, y_test, label_encoder
-    """
-    X = df.iloc[:, 1:].values.astype(np.float32)
-    y = df['label'].values
-    
-    # Encode labels
-    le = LabelEncoder()
-    y_encoded = le.fit_transform(y)
-    
-    print(f"\nClasses ({len(le.classes_)}):")
-    for idx, label in enumerate(le.classes_):
-        marker = " ← NONSENSE" if label == "Nonsense" else ""
-        print(f"  {idx:2d}: {label}{marker}")
-    
-    # Stratified splits
-    X_temp, X_test, y_temp, y_test = train_test_split(
-        X, y_encoded, test_size=test_size, stratify=y_encoded, random_state=42
-    )
-    
-    val_adjusted = val_size / (1 - test_size)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_temp, y_temp, test_size=val_adjusted, stratify=y_temp, random_state=42
-    )
-    
-    print(f"\nSplits: Train {len(X_train)} | Val {len(X_val)} | Test {len(X_test)}")
-    
-    return X_train, X_val, X_test, y_train, y_val, y_test, le
-
-
-def create_dataloaders(X_train, X_val, X_test, y_train, y_val, y_test, batch_size=512):
-    """
-    Create PyTorch DataLoaders for training.
-    
-    Returns:
-        train_loader, val_loader, test_loader
-    """
-    train_ds = LandmarkDataset(X_train, y_train)
-    val_ds = LandmarkDataset(X_val, y_val)
-    test_ds = LandmarkDataset(X_test, y_test)
-    
-    num_workers = 4 if torch.cuda.is_available() else 0
-    pin_memory = torch.cuda.is_available()
-    
-    train_loader = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True,
-        num_workers=num_workers, pin_memory=pin_memory
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=pin_memory
-    )
-    test_loader = DataLoader(
-        test_ds, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=pin_memory
-    )
-    
-    return train_loader, val_loader, test_loader
-
-
 def save_label_encoder(le, path):
-    """Save label encoder to pickle file."""
-    with open(path, 'wb') as f:
+    """Save label encoder to a pickle file."""
+    with open(path, "wb") as f:
         pickle.dump(le, f)
     print(f"Label encoder saved: {path}")
 
 
 def load_label_encoder(path):
-    """Load label encoder from pickle file."""
-    with open(path, 'rb') as f:
+    """
+    Load a label encoder from a pickle file.
+
+    Unpickling executes code from the file. Prefer classes.npy, which the
+    training script also writes, wherever only the class list is needed.
+    """
+    with open(path, "rb") as f:
         return pickle.load(f)
-
-
-if __name__ == "__main__":
-    # Example usage
-    dummy_coords = np.random.randn(63).astype(np.float32)
-    normalized = normalize_landmarks(dummy_coords)
-    print(f"Normalized shape: {normalized.shape}")
-    print(f"Wrist at origin: {normalized[:3]}")

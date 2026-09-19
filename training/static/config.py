@@ -19,14 +19,14 @@ MEDIAPIPE_MODEL = str(Path(__file__).parent.parent.parent / "models" / "hand_lan
 # ============ DATA SETTINGS ============
 # Mapping: label -> folder name
 LETTER_FOLDERS = {
-    'D': 'D_letter',
-    'F': 'F_letter',
-    'G': 'G_letter',
-    'R': 'R_letter',
-    'S': 'S_letter',
-    'V': 'V_letter',
-    'X': 'X_letter',
-    'Nonsense': 'Nonsense'
+    "D": "D_letter",
+    "F": "F_letter",
+    "G": "G_letter",
+    "R": "R_letter",
+    "S": "S_letter",
+    "V": "V_letter",
+    "X": "X_letter",
+    "Nonsense": "Nonsense",
 }
 
 # Letters to replace in original dataset
@@ -36,29 +36,29 @@ LETTERS_TO_REPLACE = list(LETTER_FOLDERS.keys())
 AUGMENT_MULTIPLIER = 10
 
 # ============ MODEL SETTINGS ============
-INPUT_DIM = 63          # 21 landmarks × 3 coordinates
-HIDDEN_DIM = 256        # Hidden layer size
-NUM_BLOCKS = 4          # Number of residual blocks
-DROPOUT = 0.3           # Dropout probability
+INPUT_DIM = 63  # 21 landmarks × 3 coordinates
+HIDDEN_DIM = 256  # Hidden layer size
+NUM_BLOCKS = 4  # Number of residual blocks
+DROPOUT = 0.3  # Dropout probability
 
 # ============ TRAINING SETTINGS ============
 BATCH_SIZE = 512
 EPOCHS = 100
-PATIENCE = 15           # Early stopping patience
+PATIENCE = 15  # Early stopping patience
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-4
 
-TEST_SIZE = 0.15        # Fraction for test set
-VAL_SIZE = 0.15         # Fraction for validation set
+TEST_SIZE = 0.15  # Fraction for test set
+VAL_SIZE = 0.15  # Fraction for validation set
 
 # ============ INFERENCE SETTINGS ============
 CONFIDENCE_THRESHOLD = 0.5
 ENTROPY_THRESHOLD = 1.8
 
 # Smoothing settings (prevents rapid letter switching)
-SMOOTHING_WINDOW = 25          # Frames to consider for voting
-MIN_AGREEMENT = 0.5            # 50% ratio to confirm first letter
-SWITCH_THRESHOLD = 0.6         # 60% ratio needed to switch to new letter
+SMOOTHING_WINDOW = 25  # Frames to consider for voting
+MIN_AGREEMENT = 0.5  # 50% ratio to confirm first letter
+SWITCH_THRESHOLD = 0.6  # 60% ratio needed to switch to new letter
 MIN_FRAMES_BEFORE_SWITCH = 20  # Minimum frames before allowing switch
 
 MIN_HAND_FRAMES = 10

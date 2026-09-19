@@ -1,61 +1,22 @@
 """
-LSTM Model for Dynamic Sign Language Recognition (J/Z)
+Deprecated shim.
+
+This module used to carry a second, independent copy of DynamicSignLSTM. Two
+definitions of the same architecture drift apart silently: a change to one means
+checkpoints saved by the training script stop loading in the served app.
+
+The single definition now lives in src/backend/models/lstm_model.py. This module
+re-exports it so existing `from model import DynamicSignLSTM` imports keep
+working; prefer importing from src.backend.models.lstm_model directly.
 """
 
-import torch
-import torch.nn as nn
+import sys
+from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-class DynamicSignLSTM(nn.Module):
-    """
-    LSTM model for recognizing dynamic sign language letters.
-    Input: (batch, sequence_length, features) = (batch, 30, 63)
-    Output: (batch, num_classes) = (batch, 2)
-    """
-    
-    def __init__(
-        self,
-        input_size=63,
-        hidden_size=128,
-        num_layers=2,
-        num_classes=2,
-        dropout=0.3
-    ):
-        super().__init__()
-        
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        
-        # LSTM layers
-        self.lstm = nn.LSTM(
-            input_size=input_size,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0,
-            bidirectional=True
-        )
-        
-        # Fully connected layers
-        self.fc = nn.Sequential(
-            nn.Linear(hidden_size * 2, 64),  # *2 for bidirectional
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(64, num_classes)
-        )
-    
-    def forward(self, x):
-        """
-        Forward pass.
-        x: (batch, seq_len, features)
-        """
-        # LSTM
-        lstm_out, (h_n, c_n) = self.lstm(x)
-        
-        # Take last output (or use attention)
-        # lstm_out: (batch, seq_len, hidden*2)
-        last_output = lstm_out[:, -1, :]  # (batch, hidden*2)
-        
-        # Classification
-        out = self.fc(last_output)
-        return out
+from src.backend.models.lstm_model import DynamicSignLSTM  # noqa: E402
+
+__all__ = ["DynamicSignLSTM"]

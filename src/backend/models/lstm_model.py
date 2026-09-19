@@ -1,6 +1,7 @@
 """
 LSTM model architecture for dynamic sign language classification (J, Z).
 """
+
 import torch
 import torch.nn as nn
 

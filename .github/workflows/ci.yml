@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        # --frozen fails if uv.lock is out of date with pyproject.toml, so a
+        # dependency change that was not locked cannot reach main.
+        run: uv sync --frozen --extra dev --extra train
+
+      - name: Lint
+        run: uv run ruff check .
+
+      # No `ruff format --check` yet: the legacy files have never been
+      # formatted, so enabling it needs one standalone formatting commit first.
+      # Add it here once that has landed.
+
+      - name: Tests
+        # Bare `pytest` on purpose: it is what most tooling runs, and it used to
+        # fail with ModuleNotFoundError: No module named 'src'.
+        run: uv run pytest
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Verify the wheel is importable and complete
+        run: |
+          uv run --no-project --with dist/*.whl python -c "
+          import src.backend.detection.normalization as n
+          import main
+          print('wheel imports OK:', n.FEATURE_SIZE, callable(main.main))
+          "

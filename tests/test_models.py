@@ -3,11 +3,11 @@ Basic tests for sign language models and detection pipeline.
 
 Run with: python -m pytest tests/ -v
 """
-import pytest
-import torch
-import numpy as np
 
-from src.backend.models.cnn_model import ResidualMLP, ResidualBlock, ASLClassifier
+import torch
+
+from src.backend.core.config import NUM_STATIC_CLASSES
+from src.backend.models.cnn_model import ASLClassifier, ResidualBlock, ResidualMLP
 from src.backend.models.lstm_model import DynamicSignLSTM
 
 
@@ -35,7 +35,7 @@ class TestResidualMLP:
         model = ResidualMLP()
         x = torch.randn(8, 63)
         out = model(x)
-        assert out.shape == (8, 24)
+        assert out.shape == (8, NUM_STATIC_CLASSES)
 
     def test_custom_config(self) -> None:
         model = ResidualMLP(input_dim=42, num_classes=10, hidden_dim=128, num_blocks=2)
@@ -48,7 +48,7 @@ class TestResidualMLP:
         model.eval()
         x = torch.randn(1, 63)
         out = model(x)
-        assert out.shape == (1, 24)
+        assert out.shape == (1, NUM_STATIC_CLASSES)
 
     def test_eval_mode_deterministic(self) -> None:
         model = ResidualMLP()

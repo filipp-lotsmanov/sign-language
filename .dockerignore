@@ -1,0 +1,29 @@
+.git/
+.github/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[codz]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Large, and mounted at runtime rather than baked in.
+models/
+datasets/
+data_collect/ngt_custom/
+data_collect/ngt_dynamic/
+docs/
+
+# Not needed to serve.
+training/
+dataset_builder/
+tests/
+scripts/
+*.md
+!README.md

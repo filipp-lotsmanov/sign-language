@@ -73,18 +73,18 @@ def perspective_transform(coords, strength=0.1):
 def augment_sample(coords):
     """
     Apply random augmentations to a single sample.
-    
+
     Args:
         coords: numpy array of shape (63,)
-    
+
     Returns:
         Augmented coordinates of shape (63,)
     """
     aug = coords.copy()
-    
+
     # Always add noise
     aug = add_noise(aug, std=np.random.uniform(0.005, 0.02))
-    
+
     # Random transformations
     if np.random.random() < 0.7:
         aug = scale_coords(aug)
@@ -98,30 +98,30 @@ def augment_sample(coords):
         aug = mirror_x(aug)
     if np.random.random() < 0.3:
         aug = perspective_transform(aug)
-    
+
     return aug
 
 
 def augment_data(samples, multiplier):
     """
     Augment dataset by creating multiple variations of each sample.
-    
+
     Args:
         samples: List of (label, coords) tuples
         multiplier: How many times to multiply the dataset
-    
+
     Returns:
         Augmented list of (label, coords) tuples
     """
     print(f"Augmenting data x{multiplier}...")
-    
+
     augmented = list(samples)  # Keep originals
-    
+
     for _ in range(multiplier - 1):
         for label, coords in samples:
             aug_coords = augment_sample(coords)
             augmented.append((label, aug_coords))
-    
+
     print(f"Done: Augmented: {len(samples)} -> {len(augmented)} samples")
     return augmented
 
@@ -129,11 +129,11 @@ def augment_data(samples, multiplier):
 def augment_by_class(samples, multiplier):
     """
     Augment data with per-class statistics.
-    
+
     Args:
         samples: List of (label, coords) tuples
         multiplier: Augmentation multiplier
-    
+
     Returns:
         Augmented list of (label, coords) tuples
     """
@@ -143,7 +143,7 @@ def augment_by_class(samples, multiplier):
         if label not in by_label:
             by_label[label] = []
         by_label[label].append((label, coords))
-    
+
     # Augment each class
     augmented = []
     for label, class_samples in by_label.items():
@@ -151,7 +151,7 @@ def augment_by_class(samples, multiplier):
         aug_samples = augment_data(class_samples, multiplier)
         augmented.extend(aug_samples)
         print(f"  {label}: {original_count} -> {len(aug_samples)}")
-    
+
     return augmented
 
 
