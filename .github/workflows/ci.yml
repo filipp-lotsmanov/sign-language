@@ -49,7 +49,7 @@ jobs:
       - name: Verify the wheel is importable and complete
         run: |
           uv run --no-project --with dist/*.whl python -c "
-          import src.backend.detection.normalization as n
+          import src.backend.detection.landmarks as lm
           import main
-          print('wheel imports OK:', n.FEATURE_SIZE, callable(main.main))
+          print('wheel imports OK:', lm.NUM_FEATURES, callable(main.main))
           "
