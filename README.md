@@ -133,6 +133,7 @@ chmod +x scripts/setup.sh
 ```powershell
 git clone https://github.com/filipp-lotsmanov/sign-language.git
 cd sign-language
+Unblock-File -Path .\scripts\setup.ps1
 .\scripts\setup.ps1
 ```
 
