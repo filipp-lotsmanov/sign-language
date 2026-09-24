@@ -6,7 +6,7 @@ This directory contains the trained model weights and the MediaPipe hand landmar
 
 | File | Size | Description |
 |------|------|-------------|
-| `static/best_model.pth` | ~2.2 MB | ResidualMLP CNN for static letters (A-I, K-Y) |
+| `static/best_model.pth` | ~2.2 MB | ResidualMLP for static letters (A-I, K-Y) |
 | `dynamic/best_model.pth` | ~2.4 MB | Bidirectional LSTM for dynamic letters (J, Z) |
 | `dynamic/classes.npy` | <1 KB | Class label mapping for the LSTM model |
 | `hand_landmarker.task` | ~7.5 MB | MediaPipe hand landmark detection model |

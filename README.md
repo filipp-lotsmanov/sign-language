@@ -27,7 +27,7 @@ flowchart LR
     B -->|WebSocket| C[FastAPI Backend]
     C --> D[MediaPipe<br/>Hand Landmarker]
     D -->|21 landmarks<br/>63 features| E{Static or<br/>Dynamic?}
-    E -->|A-I, K-Y| F[ResidualMLP<br/>CNN]
+    E -->|A-I, K-Y| F[ResidualMLP]
     E -->|J, Z| G[Bidirectional<br/>LSTM]
     F -->|prediction +<br/>confidence| H[Session<br/>Manager]
     G -->|prediction +<br/>confidence| H
@@ -50,9 +50,6 @@ flowchart LR
 - Output: 2 classes (J, Z)
 - Accuracy: see the `val_acc` and `test_acc` fields in the checkpoint produced by `training/dynamic/train.py`
 
-<!-- TODO: Embed confusion matrices here once regenerated -->
-<!-- ![Static model confusion matrix](docs/static_confusion_matrix.png) -->
-<!-- ![Dynamic model confusion matrix](docs/dynamic_confusion_matrix.png) -->
 
 ## Features
 
@@ -93,7 +90,7 @@ sign-language/
 │   │   ├── models/           # Model architectures (ResidualMLP, LSTM)
 │   └── assets/               # Tutorial GIFs (A-Z)
 ├── training/
-│   ├── static/               # CNN training pipeline (data gathering, augmentation, training)
+│   ├── static/               # ResidualMLP training pipeline (data gathering, augmentation, training)
 │   └── dynamic/              # LSTM training pipeline
 ├── models/                   # Trained weights (not tracked by git, see models/README.md)
 │   ├── static/               # ResidualMLP weights
